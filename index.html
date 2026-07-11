@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Handwritten Digit Recognition</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      text-align: center;
+      margin-top: 40px;
+    }
+    canvas {
+      border: 2px solid #333;
+      background-color: black;
+      cursor: crosshair;
+      touch-action: none;
+    }
+    button {
+      margin: 10px;
+      padding: 10px 20px;
+      font-size: 16px;
+      cursor: pointer;
+    }
+    #result {
+      font-size: 24px;
+      margin-top: 20px;
+    }
+  </style>
+</head>
+<body>
+
+  <h1>Draw a digit (0-9)</h1>
+  <canvas id="canvas" width="280" height="280"></canvas>
+  <br />
+  <button onclick="predictDigit()">Predict</button>
+  <button onclick="clearCanvas()">Clear</button>
+
+  <div id="result">Draw a digit and click Predict</div>
+
+  <script>
+    const canvas = document.getElementById("canvas");
+    const ctx = canvas.getContext("2d");
+    let drawing = false;
+
+    // Set up canvas drawing style
+    ctx.fillStyle = "black";
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    ctx.strokeStyle = "white";
+    ctx.lineWidth = 15;
+    ctx.lineCap = "round";
+
+    // ---- Mouse events ----
+    canvas.addEventListener("mousedown", (e) => {
+      drawing = true;
+      ctx.beginPath();
+      ctx.moveTo(e.offsetX, e.offsetY);
+    });
+
+    canvas.addEventListener("mousemove", (e) => {
+      if (drawing) {
+        ctx.lineTo(e.offsetX, e.offsetY);
+        ctx.stroke();
+      }
+    });
+
+    canvas.addEventListener("mouseup", () => (drawing = false));
+    canvas.addEventListener("mouseleave", () => (drawing = false));
+
+    function clearCanvas() {
+      ctx.fillStyle = "black";
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+      document.getElementById("result").innerText = "Draw a digit and click Predict";
+    }
+
+    async function predictDigit() {
+      // Convert the canvas drawing into a base64 image string
+      const imageDataUrl = canvas.toDataURL("image/png");
+
+      document.getElementById("result").innerText = "Predicting...";
+
+      try {
+        const response = await fetch("/predict", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ image: imageDataUrl })
+        });
+
+        const data = await response.json();
+        document.getElementById("result").innerText =
+          `Prediction: ${data.digit} (confidence: ${data.confidence}%)`;
+      } catch (error) {
+        document.getElementById("result").innerText = "Error connecting to backend.";
+        console.error(error);
+      }
+    }
+  </script>
+</body>
+</html>
