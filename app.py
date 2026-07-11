@@ -1,7 +1,7 @@
 # app.py
 # Step 2: Backend server - receives an image, returns a digit prediction
 
-from flask import Flask, request, jsonify
+from flask import Flask, request, jsonify, send_from_directory
 from flask_cors import CORS
 import numpy as np
 from tensorflow.keras.models import load_model
@@ -11,7 +11,7 @@ import io
 import os
 
 
-app = Flask(__name__)
+app = Flask(__name__, static_folder=".")
 CORS(app)  # allows the frontend (different origin) to talk to this backend
 
 # ---------------------------------------------------
@@ -68,10 +68,9 @@ def predict():
     })
 
 
-@app.route("/", methods=["GET"])
-def health_check():
-    return jsonify({"status": "Backend is running"})
-
+@app.route("/")
+def home():
+    return send_from_directory(".", "index.html")
 
 
 if __name__ == "__main__":
