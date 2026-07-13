@@ -14,11 +14,19 @@ import os
 app = Flask(__name__, static_folder=".")
 CORS(app)  # allows the frontend (different origin) to talk to this backend
 
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+MODEL_PATH = os.path.join(BASE_DIR, "digit_model.h5")
+
 # ---------------------------------------------------
 # Load the trained model ONCE when the server starts
 # (not on every request - that would be slow)
 # ---------------------------------------------------
-model = load_model("digit_model.h5")
+try:
+    model = load_model(MODEL_PATH)
+    app.logger.info("Model loaded successfully from %s", MODEL_PATH)
+except Exception as exc:
+    model = None
+    app.logger.exception("Failed to load model from %s: %s", MODEL_PATH, exc)
 
 
 def preprocess_image(image_data_url):
@@ -51,21 +59,31 @@ def preprocess_image(image_data_url):
 
 @app.route("/predict", methods=["POST"])
 def predict():
-    data = request.get_json()
-    image_data_url = data["image"]  # base64 string from frontend
+    if model is None:
+        return jsonify({"error": "Model failed to load on startup."}), 500
 
-    # Preprocess
-    processed = preprocess_image(image_data_url)
+    data = request.get_json(silent=True) or {}
+    image_data_url = data.get("image")
 
-    # Run prediction
-    predictions = model.predict(processed)[0]  # array of 10 probabilities
-    predicted_digit = int(np.argmax(predictions))
-    confidence = float(np.max(predictions))
+    if not image_data_url:
+        return jsonify({"error": "Missing image data."}), 400
 
-    return jsonify({
-        "digit": predicted_digit,
-        "confidence": round(confidence * 100, 2)
-    })
+    try:
+        # Preprocess
+        processed = preprocess_image(image_data_url)
+
+        # Run prediction
+        predictions = model.predict(processed)[0]  # array of 10 probabilities
+        predicted_digit = int(np.argmax(predictions))
+        confidence = float(np.max(predictions))
+
+        return jsonify({
+            "digit": predicted_digit,
+            "confidence": round(confidence * 100, 2)
+        })
+    except Exception as exc:
+        app.logger.exception("Prediction failed: %s", exc)
+        return jsonify({"error": "Prediction failed.", "details": str(exc)}), 500
 
 
 @app.route("/")
